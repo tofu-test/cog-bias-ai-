@@ -1,0 +1,67 @@
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Embedding, LSTM, Dense, Dropout
+from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+import numpy as np
+
+# Sample Dataset
+data = {
+    "texts": [
+        "I knew this was going to happen! I always said it would.",
+        "Why take the risk? This is too dangerous.",
+        "This proves my point! I was right all along.",
+        "This is amazing! Everything is going perfectly.",
+        "I'm so angry this keeps happening!",
+        "There’s no reason to worry it will all work out fine.",
+        "This is a disaster! I saw it coming from a mile away.",
+        "What a fantastic outcome, everything went as planned!",
+        "I'm really scared about what might happen next.",
+        "I knew this was the right decision. Nothing could go wrong!",
+        "Everything is falling apart! Why can't things go right?",
+        "It's all going to work out just fine, no need to worry."
+    ],
+    "labels": [
+        "confirmation_bias", "fear", "confirmation_bias", "optimism", "anger", "optimism",
+        "confirmation_bias", "optimism", "fear", "confirmation_bias", "anger", "optimism"
+    ]
+}
+
+assert len(data["texts"]) == len(data["labels"]), "Texts and labels must have the same number of samples."
+
+label_map = {label: idx for idx, label in enumerate(set(data["labels"]))}
+data["label_ids"] = [label_map[label] for label in data["labels"]]
+
+tokenizer = Tokenizer(num_words=5000)
+tokenizer.fit_on_texts(data["texts"])
+sequences = tokenizer.texts_to_sequences(data["texts"])
+padded_sequences = pad_sequences(sequences, maxlen=10, padding='post')
+
+model = Sequential([
+    Embedding(input_dim=5000, output_dim=64, input_length=10),
+    LSTM(64, return_sequences=False),
+    Dropout(0.5),
+    Dense(32, activation='relu'),
+    Dense(len(label_map), activation='softmax')  # Output layer with probabilities for each label
+])
+
+model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+
+X = np.array(padded_sequences)
+y = np.array(data["label_ids"])
+
+model.fit(X, y, epochs=10, batch_size=2, verbose=1)
+
+
+# prediction!
+def predict_bias(text):
+    seq = tokenizer.texts_to_sequences([text])
+    padded = pad_sequences(seq, maxlen=10, padding='post')
+    prediction = model.predict(padded)
+    predicted_label = list(label_map.keys())[np.argmax(prediction)]
+    return predicted_label
+
+
+test_text = "how could you do this to me!?"
+predicted_bias = predict_bias(test_text)
+print(f"Predicted Bias: {predicted_bias}")
